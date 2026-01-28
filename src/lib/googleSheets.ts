@@ -1,4 +1,5 @@
 import { Lead } from '@/types/lead';
+import { log } from 'console';
 
 const SHEET_ID = '15wlPalTmA2t0DgQVBi5OVEK-5s12_SWo08uIG76gxfI';
 const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
@@ -29,6 +30,8 @@ function safeString(value: unknown): string {
 
 export async function fetchLeadsFromSheet(): Promise<Lead[]> {
   const response = await fetch(SHEET_URL);
+  console.log(response)
+  console.log('Fetching data from Google Sheets:', SHEET_URL);  
   
   if (!response.ok) {
     throw new Error(`Failed to fetch data: ${response.status}`);
@@ -67,6 +70,19 @@ export async function fetchLeadsFromSheet(): Promise<Lead[]> {
       if (idx === undefined || !cells[idx]) return null;
       return cells[idx].v;
     };
+
+      function parseDate(value: string): Date | null {
+    if (!value) return null;
+
+    // Remove wrapping quotes if present (GViz issue)
+    const cleaned = value.trim().replace(/^"+|"+$/g, '');
+
+    if (!cleaned) return null;
+
+    const parsed = new Date(cleaned);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
 
     return {
       Company_Name: safeString(getValue('Company_Name')),
