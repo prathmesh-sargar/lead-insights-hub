@@ -11,12 +11,14 @@ export function calculateStats(leads: Lead[]): DashboardStats {
   };
 }
 
+// Get UTC date string (YYYY-MM-DD) for comparison
+function getUTCDateString(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
 export function getFollowUpStats(leads: Lead[]): FollowUpStats {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Get today's date in UTC (YYYY-MM-DD format)
+  const todayUTC = getUTCDateString(new Date());
 
   const overdue: Lead[] = [];
   const todayFollowups: Lead[] = [];
@@ -25,15 +27,27 @@ export function getFollowUpStats(leads: Lead[]): FollowUpStats {
   leads.forEach(lead => {
     if (!lead.Next_Followup_At) return;
     
-    const followupDate = new Date(lead.Next_Followup_At);
-    followupDate.setHours(0, 0, 0, 0);
+    try {
+      // Ensure we have a valid Date object
+      const followupDate = lead.Next_Followup_At instanceof Date 
+        ? lead.Next_Followup_At 
+        : new Date(lead.Next_Followup_At);
+      
+      if (isNaN(followupDate.getTime())) return;
+      
+      // Compare only the date part in UTC
+      const followupUTC = getUTCDateString(followupDate);
 
-    if (followupDate < today) {
-      overdue.push(lead);
-    } else if (followupDate.getTime() === today.getTime()) {
-      todayFollowups.push(lead);
-    } else {
-      upcoming.push(lead);
+      if (followupUTC < todayUTC) {
+        overdue.push(lead);
+      } else if (followupUTC === todayUTC) {
+        todayFollowups.push(lead);
+      } else {
+        upcoming.push(lead);
+      }
+    } catch {
+      // Skip rows with invalid dates safely
+      return;
     }
   });
 
