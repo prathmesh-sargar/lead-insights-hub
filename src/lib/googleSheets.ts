@@ -5,8 +5,14 @@ const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tq
 
 function parseDate(value: string): Date | null {
   if (!value || value.trim() === '') return null;
-  const parsed = new Date(value);
-  return isNaN(parsed.getTime()) ? null : parsed;
+  try {
+    // Parse ISO 8601 UTC format (e.g., "2026-01-27T13:43:16.828Z")
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 function parseNumber(value: string | number): number {

@@ -146,14 +146,19 @@ export function LeadsTable({ leads }: LeadsTableProps) {
     exportToCSV(filteredLeads, `leads-export-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
-  // Check if a followup is overdue
+  // Check if a followup is overdue (using UTC date comparison)
   const isOverdue = (date: Date | null): boolean => {
     if (!date) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const followupDate = new Date(date);
-    followupDate.setHours(0, 0, 0, 0);
-    return followupDate < today;
+    try {
+      const followupDate = date instanceof Date ? date : new Date(date);
+      if (isNaN(followupDate.getTime())) return false;
+      
+      const todayUTC = new Date().toISOString().split('T')[0];
+      const followupUTC = followupDate.toISOString().split('T')[0];
+      return followupUTC < todayUTC;
+    } catch {
+      return false;
+    }
   };
 
   return (
