@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Search, Download, ChevronUp, ChevronDown, ExternalLink, Mail } from 'lucide-react';
+import { Search, Download, ChevronUp, ChevronDown, ExternalLink, Mail, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +15,63 @@ type SortDirection = 'asc' | 'desc';
 
 const PAGE_SIZE = 10;
 
+// Normalize boolean values: "Yes" -> true, "No"/empty -> false
+function normalizeBoolean(value: string): boolean {
+  return value?.trim().toLowerCase() === 'yes';
+}
+
+// Normalize status: trim whitespace and proper case
+function normalizeStatus(status: string): string {
+  if (!status || status.trim() === '') return 'Unknown';
+  const trimmed = status.trim();
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+// Parse ISO date string to Date object or null
+function parseISODate(value: Date | string | null): Date | null {
+  if (!value) return null;
+  try {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return null;
+    return date;
+  } catch {
+    return null;
+  }
+}
+
+// Format date as YYYY-MM-DD for display
+function formatDateDisplay(date: Date | null): string {
+  if (!date) return '';
+  try {
+    return date.toISOString().split('T')[0];
+  } catch {
+    return 'Invalid date';
+  }
+}
+
+// Normalized lead for table display
+interface NormalizedLead extends Omit<Lead, 'Email_Sent' | 'WhatsApp_Sent' | 'Lead_Status'> {
+  Email_Sent: boolean;
+  WhatsApp_Sent: boolean;
+  Lead_Status: string;
+  _original: Lead;
+}
+
+function normalizeLead(lead: Lead): NormalizedLead {
+  return {
+    ...lead,
+    Email_Sent: normalizeBoolean(lead.Email_Sent),
+    WhatsApp_Sent: normalizeBoolean(lead.WhatsApp_Sent),
+    Lead_Status: normalizeStatus(lead.Lead_Status),
+    Last_Contacted: parseISODate(lead.Last_Contacted),
+    Next_Followup_At: parseISODate(lead.Next_Followup_At),
+    Last_Reply_Date: parseISODate(lead.Last_Reply_Date),
+    Email_Sent_Date: parseISODate(lead.Email_Sent_Date),
+    WhatsApp_Sent_Date: parseISODate(lead.WhatsApp_Sent_Date),
+    _original: lead,
+  };
+}
+
 function StatusBadge({ status }: { status: string }) {
   const statusLower = status.toLowerCase();
   let className = 'status-badge status-default';
@@ -27,14 +84,13 @@ function StatusBadge({ status }: { status: string }) {
     className = 'status-badge status-replied';
   }
   
-  return <span className={className}>{status || 'Unknown'}</span>;
+  return <span className={className}>{status}</span>;
 }
 
-function YesNoBadge({ value }: { value: string }) {
-  const isYes = value.toLowerCase() === 'yes';
+function BooleanBadge({ value }: { value: boolean }) {
   return (
-    <span className={`text-xs ${isYes ? 'text-success' : 'text-muted-foreground'}`}>
-      {isYes ? '✓' : '—'}
+    <span className={`text-xs ${value ? 'text-success' : 'text-muted-foreground'}`}>
+      {value ? <Check className="w-4 h-4 inline" /> : ''}
     </span>
   );
 }
@@ -47,20 +103,23 @@ export function LeadsTable({ leads }: LeadsTableProps) {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Get unique values for filters
+  // Normalize all leads upfront
+  const normalizedLeads = useMemo(() => leads.map(normalizeLead), [leads]);
+
+  // Get unique values for filters (using normalized values)
   const cities = useMemo(() => {
-    const unique = [...new Set(leads.map(l => l.City).filter(Boolean))];
+    const unique = [...new Set(normalizedLeads.map(l => l.City).filter(Boolean))];
     return unique.sort();
-  }, [leads]);
+  }, [normalizedLeads]);
 
   const statuses = useMemo(() => {
-    const unique = [...new Set(leads.map(l => l.Lead_Status).filter(Boolean))];
+    const unique = [...new Set(normalizedLeads.map(l => l.Lead_Status).filter(s => s !== 'Unknown'))];
     return unique.sort();
-  }, [leads]);
+  }, [normalizedLeads]);
 
-  // Filter and sort leads
+  // Filter and sort leads (using normalized values)
   const filteredLeads = useMemo(() => {
-    let result = [...leads];
+    let result = [...normalizedLeads];
 
     // Search filter
     if (search) {
@@ -76,20 +135,20 @@ export function LeadsTable({ leads }: LeadsTableProps) {
       result = result.filter(lead => lead.City === cityFilter);
     }
 
-    // Status filter
+    // Status filter (use normalized status)
     if (statusFilter !== 'all') {
       result = result.filter(lead => lead.Lead_Status === statusFilter);
     }
 
     // Sort
     result.sort((a, b) => {
-      let aVal: string | number | Date | null = a[sortField];
-      let bVal: string | number | Date | null = b[sortField];
+      let aVal: string | number | Date | null | boolean = a[sortField as keyof NormalizedLead] as string | number | Date | null | boolean;
+      let bVal: string | number | Date | null | boolean = b[sortField as keyof NormalizedLead] as string | number | Date | null | boolean;
 
       // Handle dates
       if (sortField === 'Last_Contacted' || sortField === 'Next_Followup_At') {
-        aVal = aVal ? new Date(aVal as Date).getTime() : 0;
-        bVal = bVal ? new Date(bVal as Date).getTime() : 0;
+        aVal = aVal instanceof Date ? aVal.getTime() : 0;
+        bVal = bVal instanceof Date ? bVal.getTime() : 0;
       }
 
       // Handle numbers
@@ -102,13 +161,15 @@ export function LeadsTable({ leads }: LeadsTableProps) {
       if (typeof aVal === 'string') aVal = aVal.toLowerCase();
       if (typeof bVal === 'string') bVal = bVal.toLowerCase();
 
+      if (aVal === null || aVal === undefined) return 1;
+      if (bVal === null || bVal === undefined) return -1;
       if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
 
     return result;
-  }, [leads, search, cityFilter, statusFilter, sortField, sortDirection]);
+  }, [normalizedLeads, search, cityFilter, statusFilter, sortField, sortDirection]);
 
   // Pagination
   const totalPages = Math.ceil(filteredLeads.length / PAGE_SIZE);
@@ -134,16 +195,13 @@ export function LeadsTable({ leads }: LeadsTableProps) {
   };
 
   const formatDate = (date: Date | null): string => {
-    if (!date) return '—';
-    return new Date(date).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: '2-digit'
-    });
+    if (!date) return '';
+    return formatDateDisplay(date);
   };
 
   const handleExport = () => {
-    exportToCSV(filteredLeads, `leads-export-${new Date().toISOString().split('T')[0]}.csv`);
+    // Export using original lead data
+    exportToCSV(filteredLeads.map(l => l._original), `leads-export-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   // Check if a followup is overdue (using UTC date comparison)
@@ -279,12 +337,12 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                   key={lead.Dedupe_Key || index} 
                   className="border-b border-border/50 hover:bg-muted/20 transition-colors"
                 >
-                  <td className="p-3 text-sm text-foreground font-medium">{lead.Company_Name || '—'}</td>
-                  <td className="p-3 text-sm text-muted-foreground">{lead.Category || '—'}</td>
-                  <td className="p-3 text-sm text-muted-foreground">{lead.City || '—'}</td>
+                  <td className="p-3 text-sm text-foreground font-medium">{lead.Company_Name || ''}</td>
+                  <td className="p-3 text-sm text-muted-foreground">{lead.Category || ''}</td>
+                  <td className="p-3 text-sm text-muted-foreground">{lead.City || ''}</td>
                   <td className="p-3"><StatusBadge status={lead.Lead_Status} /></td>
-                  <td className="p-3 text-center"><YesNoBadge value={lead.Email_Sent} /></td>
-                  <td className="p-3 text-center"><YesNoBadge value={lead.WhatsApp_Sent} /></td>
+                  <td className="p-3 text-center"><BooleanBadge value={lead.Email_Sent} /></td>
+                  <td className="p-3 text-center"><BooleanBadge value={lead.WhatsApp_Sent} /></td>
                   <td className="p-3 text-center text-sm text-muted-foreground">{lead.Followup_Count}</td>
                   <td className="p-3 text-sm text-muted-foreground">{formatDate(lead.Last_Contacted)}</td>
                   <td className={`p-3 text-sm ${isOverdue(lead.Next_Followup_At) ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>

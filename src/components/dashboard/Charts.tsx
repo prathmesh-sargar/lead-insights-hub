@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import {
   BarChart,
   Bar,
@@ -26,21 +27,37 @@ const COLORS = [
   'hsl(160, 60%, 45%)',
 ];
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name?: string; dataKey?: string }>; label?: string }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
-        <p className="text-sm font-medium text-foreground">{label || payload[0]?.name}</p>
-        {payload.map((item, index) => (
-          <p key={index} className="text-sm text-muted-foreground">
-            {item.dataKey || 'Value'}: {item.value}
-          </p>
-        ))}
-      </div>
-    );
+interface TooltipPayload {
+  value: number;
+  name?: string;
+  dataKey?: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+}
+
+const CustomTooltip = forwardRef<HTMLDivElement, CustomTooltipProps>(
+  ({ active, payload, label }, ref) => {
+    if (active && payload && payload.length) {
+      return (
+        <div ref={ref} className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg">
+          <p className="text-sm font-medium text-foreground">{label || payload[0]?.name}</p>
+          {payload.map((item, index) => (
+            <p key={index} className="text-sm text-muted-foreground">
+              {item.dataKey || 'Value'}: {item.value}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
   }
-  return null;
-};
+);
+
+CustomTooltip.displayName = 'CustomTooltip';
 
 function StatusChart({ data }: { data: ChartData['statusDistribution'] }) {
   if (data.length === 0) {
