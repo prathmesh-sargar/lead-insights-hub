@@ -1,6 +1,40 @@
 import { AlertTriangle, Calendar, Clock } from 'lucide-react';
 import { FollowUpStats, Lead } from '@/types/lead';
 
+/* ------------------------------------------------ */
+/* DATE PARSER (IMPORTANT FIX)
+/* Converts: 15/02/2026 19:20:00
+/* into valid JS Date
+/* ------------------------------------------------ */
+function parseFollowupDate(value: Date | string | null): Date | null {
+  if (!value) return null;
+
+  if (value instanceof Date) return value;
+
+  try {
+    const [datePart, timePart] = value.split(' ');
+    if (!datePart) return null;
+
+    const [day, month, year] = datePart.split('/');
+
+    if (!day || !month || !year) return null;
+
+    const isoString =
+      `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}` +
+      (timePart ? `T${timePart}` : '');
+
+    const parsed = new Date(isoString);
+
+    return isNaN(parsed.getTime()) ? null : parsed;
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------ */
+/* UI CARD */
+/* ------------------------------------------------ */
+
 interface FollowUpSectionProps {
   followUpStats: FollowUpStats;
 }
@@ -20,15 +54,18 @@ function FollowUpCard({
   icon,
   variant,
 }: FollowUpCardProps) {
+
   const variantClasses = {
     overdue: 'followup-overdue border',
     today: 'followup-today border',
     upcoming: 'followup-upcoming border',
   };
 
-  const formatDate = (date: Date | null) => {
-    if (!date) return '';
-    return date.toLocaleDateString('en-US', {
+  const formatDate = (date: Date | string | null) => {
+    const parsed = parseFollowupDate(date);
+    if (!parsed) return '';
+
+    return parsed.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -37,6 +74,7 @@ function FollowUpCard({
 
   return (
     <div className={`rounded-lg p-4 min-h-[140px] ${variantClasses[variant]}`}>
+      
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -45,6 +83,7 @@ function FollowUpCard({
             {title}
           </span>
         </div>
+
         <span className="text-xl font-bold text-foreground">
           {count}
         </span>
@@ -61,6 +100,7 @@ function FollowUpCard({
               <span className="truncate max-w-[150px] text-foreground">
                 {lead.Company_Name}
               </span>
+
               <span className="text-muted-foreground">
                 {formatDate(lead.Next_Followup_At)}
               </span>
@@ -82,12 +122,17 @@ function FollowUpCard({
   );
 }
 
+/* ------------------------------------------------ */
+/* MAIN SECTION */
+/* ------------------------------------------------ */
+
 export function FollowUpSection({ followUpStats }: FollowUpSectionProps) {
   return (
     <div className="chart-container">
       <h3 className="chart-title">Follow-up Status</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
         <FollowUpCard
           title="Overdue"
           count={followUpStats.overdue.length}
@@ -111,6 +156,7 @@ export function FollowUpSection({ followUpStats }: FollowUpSectionProps) {
           icon={<Calendar className="w-4 h-4 text-success" />}
           variant="upcoming"
         />
+
       </div>
     </div>
   );
