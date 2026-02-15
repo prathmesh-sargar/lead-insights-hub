@@ -259,8 +259,8 @@ export function LeadsTable({ leads }: LeadsTableProps) {
               <th className="p-3 text-center">Email</th>
               <th className="p-3 text-center">WhatsApp</th>
               <th className="p-3 text-center">Followups</th>
-              <th className="p-3 text-left">Last Contact</th>
-              <th className="p-3 text-left">Next Followup</th>
+              <th className="p-3 text-left">Last Contact Date </th>
+              <th className="p-3 text-left">Next Followup Date</th>
               <th className="p-3 text-center">Links</th>
             </tr>
           </thead>
