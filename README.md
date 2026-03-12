@@ -1,5 +1,10 @@
 # AI Lead Generation & Outreach Automation Platform
 
+
+<img width="1460" height="480" alt="Dashboard Screenshot" alt="Screenshot 2026-03-12 211422" src="https://github.com/user-attachments/assets/22c7c1a0-629b-4a48-804c-fa5f194996e4" />
+
+
+
 An **automation platform for discovering business leads, extracting contact information, and executing personalized outreach campaigns** using workflow orchestration and AI-driven messaging.
 
 The system integrates **lead discovery, contact enrichment, multi-channel outreach, reply detection, and follow-up automation** into a single automated pipeline.
